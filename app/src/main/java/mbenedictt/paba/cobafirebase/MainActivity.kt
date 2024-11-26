@@ -18,13 +18,13 @@ import com.google.firebase.firestore.firestore
 class MainActivity : AppCompatActivity() {
     val db = Firebase.firestore
 
-    var data: MutableList<Map<String, String>> = ArrayList()
-
     var DataProvinsi = ArrayList<daftarProvinsi>()
-    lateinit var lvAdpater : SimpleAdapter
+    lateinit var lvAdapter : SimpleAdapter
 
     lateinit var _etProvinsi : EditText
     lateinit var _etIbukota : EditText
+
+    var data: MutableList<Map<String, String>> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,52 +36,59 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        readData(db)
-
-        _etProvinsi = findViewById<EditText>(R.id.etProvinsi)
-        _etIbukota = findViewById<EditText>(R.id.etIbukota)
+        _etProvinsi = findViewById(R.id.etProvinsi)
+        _etIbukota = findViewById(R.id.etIbukota)
         val _btnSimpan = findViewById<Button>(R.id.btnSimpan)
         val _lvData = findViewById<ListView>(R.id.lvData)
 
-        lvAdpater = SimpleAdapter(
-            this,
-            data,
-            android.R.layout.simple_list_item_2,
-            arrayOf<String>("Pro", "Ibu"),
-            intArrayOf(
-                android.R.id.text1,
-                android.R.id.text2
-            )
-        )
-        _lvData.adapter = lvAdpater
-
         _btnSimpan.setOnClickListener {
-            val Provinsi = _etProvinsi.text.toString()
-            val Ibukota = _etIbukota.text.toString()
-            TambahData(db, Provinsi, Ibukota)
+            tambahData(db, _etProvinsi.text.toString(), _etIbukota.text.toString())
         }
+
+        lvAdapter = SimpleAdapter(this, data, android.R.layout.simple_list_item_2, arrayOf<String>("Pro", "Ibu"), intArrayOf(android.R.id.text1, android.R.id.text2))
+        _lvData.adapter = lvAdapter
+        _lvData.setOnItemLongClickListener { parent, view, position, id ->
+            val namaPro = data[position]["Pro"]
+            if(namaPro != null) {
+                db.collection("tbProvinsi")
+                    .document(namaPro)
+                    .delete()
+                    .addOnSuccessListener {
+                        Log.d("Firebase", "Berhasil diHAPUS")
+                        readData(db)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.w("Firebase", e.message.toString())
+                    }
+            }
+            true
+        }
+
+        readData(db)
     }
 
-    fun TambahData(db: FirebaseFirestore, Provinsi: String, Ibukota: String) {
+    fun tambahData(db: FirebaseFirestore, Provinsi: String, Ibukota: String) {
         val dataBaru = daftarProvinsi(Provinsi, Ibukota)
         db.collection("tbProvinsi")
-            .add(dataBaru)
+            .document(dataBaru.provinsi)
+            .set(dataBaru)
             .addOnSuccessListener {
                 _etProvinsi.setText("")
                 _etIbukota.setText("")
+                Log.d("Firebase", "Data Berhasil Disimpan")
                 readData(db)
-                Log.d("Firebase", "Data berhasil disimpan")
             }
             .addOnFailureListener {
                 Log.d("Firebase", it.message.toString())
             }
 
+        readData(db)
     }
 
     fun readData(db: FirebaseFirestore) {
         db.collection("tbProvinsi").get()
             .addOnSuccessListener {
-                result ->
+                    result ->
                 DataProvinsi.clear()
                 for (document in result) {
                     val readData = daftarProvinsi(
@@ -97,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                         data.add(dt)
                     }
                 }
-                lvAdpater.notifyDataSetChanged()
+                lvAdapter.notifyDataSetChanged()
             }
             .addOnFailureListener {
                 Log.d("Firebase", it.message.toString())
